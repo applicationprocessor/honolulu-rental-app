@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Honolulu Rental Application & Screening</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body { font-family: system-ui, Arial, sans-serif; max-width: 900px; margin: 30px auto; padding: 20px; background: #f4f7fa; line-height: 1.6; }
+        h1, h2 { color: #1a3c6e; }
+        form { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        label { display: block; margin: 18px 0 6px; font-weight: 600; }
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        button { background: #0066cc; color: white; padding: 14px 28px; border: none; border-radius: 6px; font-size: 1.1em; cursor: pointer; margin-top: 20px; }
+        button:disabled { background: #999; cursor: not-allowed; }
+        .disclosure { background: #fff9e6; padding: 20px; border-left: 5px solid #ffc107; margin: 25px 0; font-size: 0.95em; }
+        .success { color: #006400; background: #e6f4e6; padding: 15px; border-radius: 6px; }
+        .error { color: #c00; }
+    </style>
+</head>
+<body>
+    <h1>Rental Application – Honolulu Property</h1>
+    <p><strong>Address:</strong> [Your Property Address Here – Edit this]</p>
+
+    <div class="disclosure">
+        <strong>Important Hawaii Notice (HRS § 521-46):</strong> The $45 screening fee covers only actual costs of credit report, criminal background check, rental history, and references. 
+        Fee charged only when application is processed for adults 18+. Any unused portion refunded within 30 days. Receipt and cost breakdown available upon request. 
+        Consistent screening criteria applied to all applicants. Submission = consent to background/credit check.
+    </div>
+
+    <form id="applicationForm" enctype="multipart/form-data">
+        <!-- Personal Information -->
+        <div class="section">
+            <h2>Personal Information</h2>
+            <div class="grid">
+                <div><label>Full Legal Name *</label><input type="text" id="fullName" required></div>
+                <div><label>Email *</label><input type="email" id="email" required></div>
+            </div>
+            <label>Phone *</label><input type="tel" id="phone" required>
+            <label>Date of Birth *</label><input type="date" id="dob" required>
+            <label>Social Security Number (for screening only) *</label>
+            <input type="text" id="ssn" placeholder="XXX-XX-XXXX" required>
+        </div>
+
+        <!-- Housing & Income -->
+        <div class="section">
+            <h2>Housing & Financial Information</h2>
+            <label>Monthly Gross Income * ($)</label>
+            <input type="number" id="income" min="0" required>
+            <label>Number of Occupants *</label>
+            <input type="number" id="occupants" min="1" required>
+            <label>Current / Previous Rental History (last 3 years) *</label>
+            <textarea id="rentalHistory" rows="4" required placeholder="Address, Landlord name/phone, Dates, Reason for leaving"></textarea>
+        </div>
+
+        <!-- Additional -->
+        <div class="section">
+            <h2>Additional Details</h2>
+            <label>Pets (type, breed, weight if any)</label>
+            <textarea id="pets" rows="2"></textarea>
+            <label>References or Comments</label>
+            <textarea id="comments" rows="3"></textarea>
+        </div>
+
+        <!-- Documents -->
+        <div class="section">
+            <h2>Supporting Documents (Optional)</h2>
+            <label>Photo ID (Driver's License / Passport)</label>
+            <input type="file" id="idFile" accept="image/*,.pdf">
+            <label>Proof of Income (last 2 months)</label>
+            <input type="file" id="incomeFile" accept="image/*,.pdf">
+        </div>
+
+        <div class="section">
+            <h2>Screening Fee</h2>
+            <p><strong>$45.00 Application Screening Fee</strong></p>
+            <p>This covers third-party tenant screening services. Non-refundable except for any unused portion per Hawaii law.</p>
+        </div>
+
+        <button type="submit" id="submitBtn">Submit Application & Pay $45 Screening Fee</button>
+    </form>
+
+    <div id="message"></div>
+
+    <script>
+        const stripe = Stripe('pk_test_YOUR_STRIPE_PUBLISHABLE_KEY_HERE'); // ← Replace with your key
+
+        document.getElementById('applicationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Submitting & Redirecting to Payment...';
+
+            const formData = new FormData();
+            formData.append('fullName', document.getElementById('fullName').value);
+            formData.append('email', document.getElementById('email').value);
+            formData.append('phone', document.getElementById('phone').value);
+            formData.append('dob', document.getElementById('dob').value);
+            formData.append('ssn', document.getElementById('ssn').value);
+            formData.append('income', document.getElementById('income').value);
+            formData.append('occupants', document.getElementById('occupants').value);
+            formData.append('rentalHistory', document.getElementById('rentalHistory').value);
+            formData.append('pets', document.getElementById('pets').value || '');
+            formData.append('comments', document.getElementById('comments').value || '');
+
+            const idFile = document.getElementById('idFile').files[0];
+            const incomeFile = document.getElementById('incomeFile').files[0];
+            if (idFile) formData.append('idFile', idFile);
+            if (incomeFile) formData.append('incomeFile', incomeFile);
+
+            try {
+                const response = await fetch('/create-checkout-session', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.url) {
+                    window.location.href = result.url;
+                } else {
+                    throw new Error('Payment setup failed');
+                }
+            } catch (err) {
+                document.getElementById('message').innerHTML = `<p class="error">Error: ${err.message}</p>`;
+                btn.disabled = false;
+                btn.textContent = 'Submit Application & Pay $45 Screening Fee';
+            }
+        });
+    </script>
+</body>
+</html>
